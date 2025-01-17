@@ -102,41 +102,53 @@ function buildSSML(message, style) {
   </speak>`;
 }
 
-// Text-to-Speech Function with Viseme Capture
+// Text-to-Speech Function with Viseme Capture - SSML (Speech Synthesis Markup Language) 
 const textToSpeech = async (message, style) => {
   return new Promise((resolve, reject) => {
-    // Use buildSSML with message and style from OpenAI
+    // Generate SSML markup with message and style from OpenAI
+    // SSML controls speech synthesis and viseme generation
     const ssml = buildSSML(message, style);
     
+    // Configure Azure Speech service with our settings
     const speechConfig = sdk.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION);
+    // Set high-quality audio output format
     speechConfig.speechSynthesisOutputFormat =
       sdk.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3; // MP3 format
+    // Set the voice to use (defined in .env)
     speechConfig.speechSynthesisVoiceName = AZURE_VOICE_NAME;
 
+    // Array to store viseme events (mouth positions)
     let visemes = [];
 
+    // Create speech synthesizer with our config
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig);
 
+    // Event handler for viseme (mouth position) events
     synthesizer.visemeReceived = (s, e) => {
+      console.log('Viseme received:', e.visemeId, 'at offset:', e.audioOffset / 10000);
       visemes.push({
-        offset: e.audioOffset / 10000, // Convert to desired units if needed
-        id: e.visemeId,
+        offset: e.audioOffset / 10000, // Convert microseconds to centiseconds
+        id: e.visemeId,               // ID of the mouth position
       });
     };
 
+    // Start speech synthesis with our SSML
     synthesizer.speakSsmlAsync(
       ssml,
       (result) => {
         if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+          // Success: convert audio data to buffer and return with visemes
           const audioBuffer = Buffer.from(result.audioData);
           synthesizer.close();
           resolve({ audioBuffer, visemes });
         } else {
+          // Failed to synthesize speech
           synthesizer.close();
           reject(new Error('Speech synthesis failed.'));
         }
       },
       (error) => {
+        // Handle any errors during synthesis
         synthesizer.close();
         reject(error);
       }
@@ -163,10 +175,13 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: message }
       ],
+      // Tell OpenAI to return a structured JSON response
       response_format: {
         type: "json_schema",
         json_schema: {
+          // Name helps with error messages and documentation
           name: "avatar_response",
+          // Define the exact structure we want returned
           schema: {
             type: "object",
             properties: {
@@ -176,6 +191,7 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
               },
               style: {
                 type: "string",
+                // Only allow styles we support
                 enum: VALID_STYLES,
                 description: "Speaking style based on emotional context"
               },
@@ -184,14 +200,18 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
                 description: "Explanation for style choice"
               }
             },
+            // All fields must be present
             required: ["message", "style", "reasoning"],
+            // Don't allow extra fields
             additionalProperties: false
           },
+          // Enforce strict schema compliance
           strict: true
         }
       }
     });
 
+    // OpenAI returns the response as a JSON string in message.content
     const parsedResponse = JSON.parse(aiResponse.choices[0].message.content);
     console.log('OpenAI response:', parsedResponse);
     console.log('Using style:', parsedResponse.style);
