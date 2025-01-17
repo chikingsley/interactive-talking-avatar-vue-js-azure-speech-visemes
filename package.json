@@ -1,0 +1,17 @@
+{
+  "name": "interactive-talking-avatar",
+  "version": "1.0.0",
+  "description": "Interactive Talking Avatar with Vue.js and Azure Speech",
+  "scripts": {
+    "install-all": "cd frontend && npm install && cd ../backend && npm install",
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && node server.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "format": "prettier --write \"**/*.{md,json,js,vue}\"",
+    "format:check": "prettier --check \"**/*.{md,json,js,vue}\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.2.5"
+  }
+}

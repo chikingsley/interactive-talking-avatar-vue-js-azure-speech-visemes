@@ -1,4 +1,7 @@
+# Environment Variables
 .env
+
+# Dependencies
 node_modules
 .vs_code
 
@@ -11,17 +14,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-.DS_Store
+# Build Output
 dist
 dist-ssr
 coverage
 *.local
 
+# Testing
 /cypress/videos/
 /cypress/screenshots/
 
-# Editor directories and files
+# OS Generated Files
+.DS_Store
+
+# Editor and IDE Files
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -31,4 +37,5 @@ coverage
 *.sln
 *.sw?
 
+# TypeScript
 *.tsbuildinfo

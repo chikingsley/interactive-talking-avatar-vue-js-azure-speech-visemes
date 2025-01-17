@@ -75,7 +75,8 @@ const textToSpeech = async (message) => {
   return new Promise((resolve, reject) => {
     const ssml = buildSSML(message);
     const speechConfig = sdk.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION);
-    speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3; // MP3 format
+    speechConfig.speechSynthesisOutputFormat =
+      sdk.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3; // MP3 format
     speechConfig.speechSynthesisVoiceName = AZURE_VOICE_NAME;
 
     let visemes = [];

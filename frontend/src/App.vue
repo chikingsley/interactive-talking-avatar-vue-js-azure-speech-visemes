@@ -14,12 +14,11 @@
 import Navbar from './components/Navbar.vue';
 import Avatar from './components/Avatar.vue';
 
-
 export default {
   name: 'App',
   components: {
     Navbar,
-    Avatar
+    Avatar,
   },
   data() {
     return {
