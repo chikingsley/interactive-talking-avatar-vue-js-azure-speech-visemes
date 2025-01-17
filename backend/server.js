@@ -51,18 +51,50 @@ if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION || !AZURE_VOICE_NAME) {
   throw new Error('Azure Speech service environment variables are not defined.');
 }
 
-// Function to build SSML with viseme information
-function buildSSML(message) {
+// Valid speaking styles for Azure Speech Service
+const VALID_STYLES = [
+  'cheerful', 'sad', 'angry', 'friendly', 'terrified',
+  'unfriendly', 'whispering', 'hopeful', 'shouting', 'excited'
+];
+
+// System prompt for emotional response styles
+const SYSTEM_PROMPT = `You are a helpful assistant that responds naturally while choosing appropriate speaking styles.
+    
+RESPONSE FORMAT:
+Return a JSON object with:
+- message: your response text
+- style: speaking style to use
+- reasoning: brief explanation of style choice
+
+AVAILABLE STYLES AND USAGE:
+- cheerful: For positive news, celebrations, congratulations
+- sad: For empathizing with difficulties or losses
+- angry: Reserved for expressing justified concerns (use rarely)
+- friendly: Default style for general conversation
+- terrified: For expressing shock or extreme surprise
+- unfriendly: For stern warnings or serious cautions (use rarely)
+- whispering: For sharing secrets or calm reassurance
+- hopeful: For encouragement and positive future outlook
+- shouting: For emphasis or excitement (use very rarely)
+- excited: For sharing enthusiasm or great news
+
+Choose styles based on the emotional context of the conversation.`;
+
+/**
+ * Builds SSML markup for Azure Speech Service
+ * @param {string} message - The text to speak
+ * @param {string} style - Speaking style (cheerful, sad, etc)
+ * @returns {string} SSML markup
+ */
+function buildSSML(message, style) {
   return `<speak version="1.0"
   xmlns="http://www.w3.org/2001/10/synthesis"
   xmlns:mstts="https://www.w3.org/2001/mstts"
   xml:lang="en-US">
   <voice name="${AZURE_VOICE_NAME}">
       <mstts:viseme type="redlips_front"/>
-      <mstts:express-as style="excited">
-          <prosody rate="-8%" pitch="23%">
-              ${message}
-          </prosody>
+      <mstts:express-as style="${style}">
+          ${message}
       </mstts:express-as>
       <mstts:viseme type="sil"/>
       <mstts:viseme type="sil"/>
@@ -71,9 +103,11 @@ function buildSSML(message) {
 }
 
 // Text-to-Speech Function with Viseme Capture
-const textToSpeech = async (message) => {
+const textToSpeech = async (message, style) => {
   return new Promise((resolve, reject) => {
-    const ssml = buildSSML(message);
+    // Use buildSSML with message and style from OpenAI
+    const ssml = buildSSML(message, style);
+    
     const speechConfig = sdk.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION);
     speechConfig.speechSynthesisOutputFormat =
       sdk.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3; // MP3 format
@@ -110,31 +144,65 @@ const textToSpeech = async (message) => {
   });
 };
 
-// Endpoint to handle chat messages with viseme data
+// OpenAI chat endpoint with structured response
 app.post('/api/chat', chatLimiter, async (req, res) => {
   let { message } = req.body;
+  console.log('Received message:', message);
 
   if (!message) {
+    console.log('Error: No message provided');
     return res.status(400).json({ error: 'Message is required.' });
   }
 
-  // Sanitize input
-  message = sanitizeHtml(message, {
-    allowedTags: [],
-    allowedAttributes: {},
-  });
-
   try {
     // Get response from OpenAI
+    console.log('Requesting OpenAI response...');
     const aiResponse = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: message }],
+      model: 'gpt-4o-2024-08-06',
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: message }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "avatar_response",
+          schema: {
+            type: "object",
+            properties: {
+              message: {
+                type: "string",
+                description: "The response text"
+              },
+              style: {
+                type: "string",
+                enum: VALID_STYLES,
+                description: "Speaking style based on emotional context"
+              },
+              reasoning: {
+                type: "string",
+                description: "Explanation for style choice"
+              }
+            },
+            required: ["message", "style", "reasoning"],
+            additionalProperties: false
+          },
+          strict: true
+        }
+      }
     });
 
-    const aiText = aiResponse.choices[0].message.content.trim();
+    const parsedResponse = JSON.parse(aiResponse.choices[0].message.content);
+    console.log('OpenAI response:', parsedResponse);
+    console.log('Using style:', parsedResponse.style);
 
     // Convert text to speech using Azure with visemes
-    const { audioBuffer, visemes } = await textToSpeech(aiText);
+    console.log('Converting to speech...');
+    const { audioBuffer, visemes } = await textToSpeech(
+      parsedResponse.message,
+      parsedResponse.style
+    );
+    console.log('Speech conversion complete, visemes:', visemes.length);
 
     // Generate unique filename
     const uniqueFilename = `response_${uuidv4()}.mp3`;
@@ -142,11 +210,25 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
 
     // Save the audio buffer to a file
     fs.writeFileSync(filePath, audioBuffer);
+    console.log('Audio file saved');
 
-    // Send response, audio filename, and visemes
-    res.json({ response: aiText, audio: uniqueFilename, visemes });
+    // Send response
+    res.json({
+      response: parsedResponse.message,
+      style: parsedResponse.style,
+      reasoning: parsedResponse.reasoning,
+      audio: uniqueFilename,
+      visemes
+    });
+    console.log('Response sent successfully');
+
   } catch (error) {
-    console.error('Error in /api/chat:', error.message);
+    console.error('Error in /api/chat:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'An error occurred while processing your request.' });
   }
 });

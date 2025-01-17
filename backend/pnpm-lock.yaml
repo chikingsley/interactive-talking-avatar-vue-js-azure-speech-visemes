@@ -24,11 +24,14 @@ importers:
         specifier: ^1.40.0
         version: 1.42.0
       openai:
-        specifier: ^4.65.0
-        version: 4.78.1
+        specifier: ^4.78.1
+        version: 4.78.1(zod@3.24.1)
       sanitize-html:
         specifier: ^2.13.0
         version: 2.14.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
 
 packages:
 
@@ -509,6 +512,9 @@ packages:
       utf-8-validate:
         optional: true
 
+  zod@3.24.1:
+    resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
+
 snapshots:
 
   '@types/node-fetch@2.6.12':
@@ -857,7 +863,7 @@ snapshots:
     dependencies:
       ee-first: 1.1.1
 
-  openai@4.78.1:
+  openai@4.78.1(zod@3.24.1):
     dependencies:
       '@types/node': 18.19.71
       '@types/node-fetch': 2.6.12
@@ -866,6 +872,8 @@ snapshots:
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0
+    optionalDependencies:
+      zod: 3.24.1
     transitivePeerDependencies:
       - encoding
 
@@ -1004,3 +1012,5 @@ snapshots:
       webidl-conversions: 3.0.1
 
   ws@7.5.10: {}
+
+  zod@3.24.1: {}
